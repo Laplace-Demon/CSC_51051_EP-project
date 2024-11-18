@@ -1,0 +1,8 @@
+not (not (A \/ not A))
+intro n-aorna
+elim n-aorna
+right 
+intro a
+elim n-aorna
+left 
+exact a

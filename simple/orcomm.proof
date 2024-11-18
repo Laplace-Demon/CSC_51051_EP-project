@@ -1,0 +1,7 @@
+A \/ B => B \/ A
+intro or
+elim or
+right 
+exact or
+left 
+exact or

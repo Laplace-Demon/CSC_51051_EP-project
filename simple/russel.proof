@@ -1,0 +1,19 @@
+(A => not A) => (not A => A) => _
+intro aina
+intro naia
+cut A
+intro a
+cut A => _
+intro na
+elim na
+exact a
+elim aina
+exact a
+elim naia
+intro a
+cut A => _
+intro na
+elim na
+exact a
+elim aina
+exact a

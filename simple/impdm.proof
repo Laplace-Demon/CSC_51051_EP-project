@@ -1,0 +1,10 @@
+((not A) \/ B) => A => B
+intro naorb
+intro a
+elim naorb
+cut _
+intro f
+elim f
+elim naorb
+exact a
+exact naorb

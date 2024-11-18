@@ -22,13 +22,14 @@ open Expr
 
 /* A type */
 ty:
-  | IDENT     { TVar $1 }
-  | ty IMP ty { Imp ($1, $3) }
-  | ty AND ty { And ($1, $3) }
-  | ty OR ty  { Or ($1, $3) }
-  | NOT ty    { Imp ($2, False) }
-  | TRUE      { True }
-  | FALSE     { False }
+  | IDENT        { TVar $1 }
+  | LPAR ty RPAR { $2 }
+  | ty IMP ty    { Impl ($1, $3) }
+  | ty AND ty    { Conj ($1, $3) }
+  | ty OR ty     { Disj ($1, $3) }
+  | NOT ty       { Impl ($2, False) }
+  | TRUE         { True }
+  | FALSE        { False }
 
 /* A term */
 tm:

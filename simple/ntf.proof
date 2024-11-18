@@ -1,0 +1,4 @@
+not T => _
+intro nt
+elim nt
+intro 

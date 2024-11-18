@@ -1,0 +1,14 @@
+(A /\ (B \/ C)) => (A /\ B) \/ (A /\ C)
+intro and
+cut B \/ C
+intro or
+elim or
+left 
+intro 
+fst and
+exact or
+right 
+intro 
+fst and
+exact or
+snd and
