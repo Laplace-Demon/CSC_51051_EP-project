@@ -19,6 +19,9 @@ rule token = parse
   | "left"   { LEFT }
   | "right"  { RIGHT }
   | "absurd" { ABSURD }
+  | "zero"   { ZERO }
+  | "suc"    { SUC }
+  | "rec"    { REC }
   | "T"      { TRUE }
   | "⊤"      { TRUE }
   | "_"      { FALSE }
@@ -36,7 +39,8 @@ rule token = parse
   | ","      { COMMA }
   | "->"     { TO }
   | "→"      { TO }
-  | (['A'-'Z''a'-'z''0'-'9']+ as s) { IDENT s }
+  | "Nat"    { NAT }
+  | (['A'-'Z''a'-'z']['A'-'Z''a'-'z''0'-'9''-''\'']* as s) { IDENT s }
   | space+ { token lexbuf }
   | "\n" { new_line lexbuf; token lexbuf }
   | eof { EOF }

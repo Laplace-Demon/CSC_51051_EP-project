@@ -1,7 +1,7 @@
 A \/ B => B \/ A
 intro or
-elim or
+elim or [ a b ]
 right 
-exact or
+exact a
 left 
-exact or
+exact b

@@ -1,10 +1,10 @@
 ((not A) \/ B) => A => B
-intro naorb
+intro or
 intro a
-elim naorb
+elim or [ na b ]
 cut _
-intro f
-elim f
-elim naorb
+intro false
+elim false
+elim na
 exact a
-exact naorb
+exact b

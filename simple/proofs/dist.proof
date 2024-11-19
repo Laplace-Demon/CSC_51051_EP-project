@@ -2,13 +2,13 @@
 intro and
 cut B \/ C
 intro or
-elim or
+elim or [ b c ]
 left 
 intro 
 fst and
-exact or
+exact b
 right 
 intro 
 fst and
-exact or
+exact c
 snd and

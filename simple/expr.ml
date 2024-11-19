@@ -12,6 +12,7 @@ type ty =
   | Disj of ty * ty
   | True
   | False
+  | Nat
 
 type tm =
   | Var of var
@@ -29,3 +30,7 @@ type tm =
   | Unit
   (* Falsity. *)
   | Absurd of tm * ty
+  (* Natural Numbers. *)
+  | Zero
+  | Suc of tm
+  | Rec of tm * tm * var * var * tm

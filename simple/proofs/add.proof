@@ -1,0 +1,7 @@
+Nat => Nat => Nat
+intro m
+intro n
+elim m [ m' add-m'-n ]
+exact n
+suc 
+exact add-m'-n

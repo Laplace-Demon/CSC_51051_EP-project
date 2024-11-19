@@ -1,0 +1,5 @@
+Nat => Nat
+intro m
+elim m [ m' pred-m' ]
+zero 
+exact m'

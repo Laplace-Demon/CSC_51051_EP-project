@@ -20,6 +20,8 @@ let rec string_of_ty : ty -> string = function
     sprintf "⊤"
   | False ->
     sprintf "⊥"
+  | Nat ->
+    sprintf "Nat"
 
 let () =
   let ty = Impl (Impl (TVar "A", TVar "B"), Impl (TVar "A", TVar "C")) in
@@ -48,6 +50,12 @@ let rec string_of_tm : tm -> string = function
     sprintf "()"
   | Absurd (tm, ty) ->
     sprintf "absurd(%s, %s)" (string_of_tm tm) (string_of_ty ty)
+  | Zero ->
+    sprintf "zero"
+  | Suc tm ->
+    sprintf "suc(%s)" (string_of_tm tm)
+  | Rec (tm, base, nv, rv, recr) ->
+    sprintf "rec(%s, %s, %s %s -> %s)" (string_of_tm tm) (string_of_tm base) nv rv (string_of_tm recr)
 
 let () =
   let tm = Abs ("f", Impl (TVar "A", TVar "B"), Abs ("x", TVar "A", App (Var "f", Var "x"))) in
@@ -101,8 +109,19 @@ exception Type_error
               Γ ⊢ Unit : ⊤
 
                 Γ ⊢ t : ⊥
-      --------------------------(explosion)
+      --------------------------(absurd)
           Γ ⊢ Absurd (t, A) : A
+
+          ------------------(zero)
+            Γ ⊢ Zero : Nat
+
+              Γ ⊢ t : Nat
+         -------------------(suc)
+            Γ ⊢ Suc t : Nat
+
+ Γ ⊢ t : Nat   Γ ⊢ u : A   Γ, x : Nat, y : A ⊢ v : A
+-----------------------------------------------------(rec)
+        Γ ⊢ Rec (t, u, x, y, v) : A
 *)
 
 (** Type inference. *)
@@ -159,6 +178,16 @@ let rec infer_type : context -> tm -> ty = fun env -> function
     True
   | Absurd (tm, ty) ->
     check_type env tm False;
+    ty
+  | Zero ->
+    Nat
+  | Suc tm ->
+    check_type env tm Nat;
+    Nat
+  | Rec (tm, base, vn, vr, recr) ->
+    check_type env tm Nat;
+    let ty = infer_type env base in
+    check_type ((vn, Nat) :: (vr, ty) :: env) recr ty;
     ty
 
 (** Type checking. *)
@@ -307,15 +336,42 @@ let rec prove env goal =
   print_endline (string_of_seq (env, goal));
   print_string "? "; flush_all ();
   let error e = print_endline e; prove env goal in
-  let cmd, arg =
-    let cmd = input_line stdin in
-    let n = try String.index cmd ' ' with Not_found -> String.length cmd in
-    let c = String.sub cmd 0 n in
-    let a = String.sub cmd n (String.length cmd - n) in
-    let a = String.trim a in
-    c, a
+  let cmd, arg, name_list =
+    let line = input_line stdin in
+    let cmd_length = try String.index line ' ' with Not_found -> String.length line in
+    let cmd = String.sub line 0 cmd_length in
+    let arg_and_name_list = String.sub line cmd_length (String.length line - cmd_length) in
+    let arg_and_name_list = String.trim arg_and_name_list in
+    let arg_length =
+      try String.index arg_and_name_list '[' - 1
+      with Not_found -> String.length arg_and_name_list
+    in
+    let arg =
+      if arg_length = -1 then ""
+      else String.sub arg_and_name_list 0 arg_length
+    in
+    let name_list =
+      String.sub arg_and_name_list arg_length (String.length arg_and_name_list - arg_length)
+    in
+    let name_list = String.trim name_list in
+    let name_list_length = String.length name_list in
+    let name_list =
+      if name_list_length >= 2
+      then String.sub name_list 1 (name_list_length - 2)
+      else name_list
+    in
+    let name_list =
+      List.filter (fun s -> not (String.equal "" s)) (String.split_on_char ' ' name_list)
+    in
+    cmd, arg, name_list
   in
-  let tactic = String.concat " " [ cmd ; arg ] in
+  let name_list_length = List.length name_list in
+  let tactic =
+    String.concat " " [ cmd ; arg ] ^
+    if name_list_length = 0
+    then ""
+    else String.concat " " [ " [" ; String.concat " " name_list ; "]" ]
+  in
   match cmd with
   | "intro" ->
     begin match goal with
@@ -335,6 +391,23 @@ let rec prove env goal =
     | _ ->
       error "Don't know how to introduce this."
     end
+  | "zero" ->
+    begin match goal with
+    (* Introduction rule for nat, corresponding to zero *)
+    | Nat ->
+      Zero, [ tactic ]
+    | _ ->
+      error "Don't know how to introduce this."
+    end
+  | "suc" ->
+    begin match goal with
+    (* Introduction rule for nat, corresponding to suc *)
+    | Nat ->
+      let tm, tactics = prove env Nat in
+      Suc tm, tactic :: tactics
+    | _ ->
+      error "Don't know how to introduce this."
+    end
   | "elim" ->
     if arg = "" then error "Please provide an argument for elim." else
     begin try
@@ -347,12 +420,38 @@ let rec prove env goal =
         App (Var arg, tm), tactic :: tactics
       (* Elimination rule for disjunction. *)
       | Disj (a, b) ->
-        let tm1, tactics1 = prove ((arg, a) :: env) goal in
-        let tm2, tactics2 = prove ((arg, b) :: env) goal in
-        Case (Var arg, arg, tm1, arg, tm2), List.concat [ [ tactic ] ; tactics1 ; tactics2 ]
+        begin match name_list_length with
+        | 0 ->
+          let tm1, tactics1 = prove ((arg, a) :: env) goal in
+          let tm2, tactics2 = prove ((arg, b) :: env) goal in
+          Case (Var arg, arg, tm1, arg, tm2), List.concat [ [ tactic ] ; tactics1 ; tactics2 ]
+        | 2 ->
+          let v1 = List.nth name_list 0 in
+          let v2 = List.nth name_list 1 in
+          let tm1, tactics1 = prove ((v1, a) :: env) goal in
+          let tm2, tactics2 = prove ((v2, b) :: env) goal in
+          Case (Var arg, v1, tm1, v2, tm2), List.concat [ [ tactic ] ; tactics1 ; tactics2 ]
+        | _ ->
+          error "Bad number of names."
+        end
       (* Elimination rule for falsity. *)
       | False ->
         Absurd (Var arg, goal), [ tactic ]
+      | Nat ->
+        begin match name_list_length with
+        | 0 ->
+          let tm1, tactics1 = prove env Nat in
+          let tm2, tactics2 = prove (("n", Nat) :: ("r", Nat) :: env) Nat in
+          Rec (Var arg, tm1, "n", "r", tm2), List.concat [ [ tactic ] ; tactics1 ; tactics2 ]
+        | 2 ->
+          let v1 = List.nth name_list 0 in
+          let v2 = List.nth name_list 1 in
+          let tm1, tactics1 = prove env Nat in
+          let tm2, tactics2 = prove ((v1, Nat) :: (v2, Nat) :: env) Nat in
+          Rec (Var arg, tm1, v1, v2, tm2), List.concat [ [ tactic ] ; tactics1 ; tactics2 ]
+        | _ ->
+          error "Bad number of names."
+        end
       | _ ->
         error "Don't know how to eliminate this."
       end
@@ -374,13 +473,11 @@ let rec prove env goal =
   | "fst" ->
     if arg = "" then error "Please provide an argument for fst." else
     begin try
-      let arg_tm = tm_of_string arg in
-      begin match infer_type env arg_tm with
+      match List.assoc arg env with
       | Conj (a, _) when a = goal ->
-        Fst arg_tm, [ tactic ]
+        Fst (Var arg), [ tactic ]
       | _ ->
         error "Argument is of bad type."
-      end
     with
     | Type_error ->
       error "Cannot infer the type of argument."
@@ -390,13 +487,11 @@ let rec prove env goal =
   | "snd" ->
     if arg = "" then error "Please provide an argument for snd." else
     begin try
-      let arg_tm = tm_of_string arg in
-      begin match infer_type env arg_tm with
+      match List.assoc arg env with
       | Conj (_, b) when b = goal ->
-        Snd arg_tm, [ tactic ]
+        Snd (Var arg), [ tactic ]
       | _ ->
         error "Argument is of bad type."
-      end
     with
     | Type_error ->
       error "Cannot infer the type of argument."
@@ -435,23 +530,33 @@ let rec prove env goal =
   | cmd ->
     error ("Unknown command: " ^ cmd)
 
+let rec main () : unit =
+  let error e = print_endline e; main () in
+  try
+    print_endline "Please enter the formula to prove:";
+    let goal = input_line stdin in
+    let goal_ty = ty_of_string goal in
+    print_endline "Let's prove it.";
+    let proof_tm, tactics = prove [] goal_ty in
+    print_endline "done.";
+    print_endline "Proof term is";
+    print_endline (string_of_tm proof_tm);
+    print_string  "Typechecking... "; flush_all ();
+    assert (infer_type [] proof_tm = goal_ty);
+    print_endline "ok.";
+    print_endline "Store the proof in a file [y/N]";
+    match input_line stdin with
+    | "y" ->
+      print_endline "Specify the file name:";
+      let outfile = open_out ((input_line stdin) ^ ".proof") in
+      output_string outfile (String.concat "\n" (goal :: tactics))
+    | _ ->
+      ()
+  with
+  | Stdlib.Parsing.Parse_error ->
+    error "parsing: error"
+  | Failure e ->
+    error e
+  
 let () =
-  print_endline "Please enter the formula to prove:";
-  let goal = input_line stdin in
-  let goal_ty = ty_of_string goal in
-  print_endline "Let's prove it.";
-  let proof_tm, tactics = prove [] goal_ty in
-  print_endline "done.";
-  print_endline "Proof term is";
-  print_endline (string_of_tm proof_tm);
-  print_string  "Typechecking... "; flush_all ();
-  assert (infer_type [] proof_tm = goal_ty);
-  print_endline "ok.";
-  print_endline "Store the proof in a file [y/N]";
-  match input_line stdin with
-  | "y" ->
-    print_endline "Specify the file name:";
-    let outfile = open_out ((input_line stdin) ^ ".proof") in
-    output_string outfile (String.concat "\n" (goal :: tactics))
-  | _ ->
-    ()
+  main ()

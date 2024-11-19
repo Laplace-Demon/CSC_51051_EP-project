@@ -2,8 +2,8 @@
 intro or
 intro f
 intro g
-elim or
+elim or [ a b ]
 elim f
-exact or
+exact a
 elim g
-exact or
+exact b
